@@ -1,0 +1,9 @@
+version: 2
+updates:
+  - package-ecosystem: "git-submodule"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    allow:
+      - dependency-name: "dawn"
+        dependency-type: "direct"
