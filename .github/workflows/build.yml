@@ -41,6 +41,13 @@ jobs:
         with:
           ndk-version: r26d
 
+      - name: Configure gclient for Android
+        if: matrix.target == 'android'
+        run: |
+          git submodule update --init
+          cp dawn/scripts/standalone.gclient dawn/.gclient
+          echo "target_os = ['android']" >> dawn/.gclient
+
       - name: Install depot_tools
         shell: bash
         run: |
