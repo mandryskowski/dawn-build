@@ -1,4 +1,4 @@
-Name: build
+name: build
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
           - android
         include:
           - target: win64
-            os: windows-latest
+            os: windows-latest # CHANGED: Switched to native Windows runner
           - target: macos64
             os: macos-latest
           - target: linux64
@@ -51,10 +51,12 @@ jobs:
             echo "$HOME/depot_tools" >> $GITHUB_PATH
           fi
 
-      # REQUIRED: Setup MSVC Environment for Windows (fixes "CMAKE_C_COMPILER not set")
       - name: Setup MSVC
         if: matrix.target == 'win64'
         uses: ilammy/msvc-dev-cmd@v1
+
+      # REMOVED: Cache windows sdk (MSVC is pre-installed)
+      # REMOVED: Download windows sdk (xwin is not needed)
 
       - name: Install ninja (linux)
         if: matrix.os == 'ubuntu-latest'
@@ -70,11 +72,15 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: choco install ninja
 
+      # REMOVED: Install windows dependencies (clang/llvm on linux not needed)
+
       - name: Install linux dependencies
         if: matrix.target == 'linux64'
         run: |
           sudo apt-get install libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev \
             libxext-dev libxcb-shm0-dev libxtst-dev libx11-xcb-dev
+
+      # REMOVED: Setup cmake toolchain for windows (MSVC is native)
 
       - name: Build dawn
         env:
@@ -86,14 +92,22 @@ jobs:
           
           if [ "${{ matrix.target }}" == "win64" ]; then
             # DYNAMICALLY FIND NINJA
-            # 'where.exe' finds all instances. grep finds the one installed by choco.
-            # tr removes Windows carriage returns.
-            RAW_NINJA_PATH=$(where.exe ninja | grep "chocolatey" | head -n 1 | tr -d '\r')
+            # 'command -v ninja' finds the first ninja in PATH.
+            # Since we installed Choco ninja AFTER depot_tools, we need to ensure
+            # we pick the right one, or simply trust that Choco put it in a higher priority path.
+            # However, depot_tools is aggressive. 
             
-            # Convert backslashes to forward slashes for CMake safety in Bash
-            NINJA_PATH="${RAW_NINJA_PATH//\\//}"
+            # Safer method: Look for the executable explicitly known to be the real binary
+            # or force the path search order.
             
-            echo "Using Ninja binary at: $NINJA_PATH"
+            # This finds the system/choco ninja, ignoring the depot_tools wrapper/script
+            # by iterating until we find one that looks like a binary or specifically avoiding depot_tools.
+            # A simpler way on GitHub Actions is using 'where' (cmd tool) which lists all paths, 
+            # then picking the one that isn't depot_tools.
+            
+            NINJA_PATH=$(where.exe ninja | grep "chocolatey" | head -n 1 | tr -d '\r')
+            
+            echo "Using Ninja at: $NINJA_PATH"
             
             EXTRA_CMAKE_ARGS="-G Ninja -DDAWN_USE_BUILT_DXC=ON -DCMAKE_MAKE_PROGRAM=\"$NINJA_PATH\""
           fi
@@ -138,6 +152,7 @@ jobs:
           git tag $tag
           git push origin $tag
           echo "TAG=$tag" >> $GITHUB_OUTPUT
+          # Assuming 'dawn' is a submodule or directory within the repo
           echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Download artifacts
@@ -146,7 +161,7 @@ jobs:
       - name: Prepare artifacts
         run: |
           for target in win64 macos64 linux64 android; do
-            # Create a directory if it doesn't exist
+            # Create a directory if it doesn't exist (artifact download usually creates it)
             mkdir -p dawn-static-$target
             echo "${{ steps.create-git-tag.outputs.COMMIT }}" > dawn-static-$target/COMMIT
             tar -czvf dawn-static-$target.tar.gz dawn-static-$target/
