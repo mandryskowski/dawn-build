@@ -82,27 +82,19 @@ jobs:
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
           DEPOT_TOOLS_WIN_TOOLCHAIN: 0
-        shell: bash # Use bash on Windows as well for script compatibility
+        # Use cmd to wrap the call in the Visual Studio environment
+        shell: cmd
         run: |
-          EXTRA_CMAKE_ARGS=""
-          
-          if [ "${{ matrix.target }}" == "win64" ]; then
-            # Using MSVC natively; -GNinja is recommended if you installed it above
-            EXTRA_CMAKE_ARGS="-G Ninja -DDAWN_USE_BUILT_DXC=ON"
-          fi
+          :: 1. Initialize MSVC environment variables
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
 
-          if [ "${{ matrix.target }}" == "macos64" ]; then
-            EXTRA_CMAKE_ARGS="-DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"
-          fi
+          :: 2. Set up arguments (manually for cmd)
+          set EXTRA_CMAKE_ARGS=-G Ninja -DDAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON -DDAWN_USE_BUILT_DXC=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
 
-          if [ "${{ matrix.target }}" == "android" ]; then
-             EXTRA_CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
-               -DANDROID_ABI=arm64-v8a \
-               -DANDROID_PLATFORM=android-30 \
-               -DDAWN_USE_X11=OFF \
-               -DDAWN_USE_WAYLAND=OFF \
-               -DTINT_BUILD_SPV_READER=ON"
-          fi
+          :: 3. Run the build script using the Bash interpreter explicitly
+          :: We use the system Ninja to avoid the depot_tools version error
+          "C:\Program Files\Git\bin\bash.exe" ./scripts/build %EXTRA_CMAKE_ARGS%
+
           
           ./scripts/build $EXTRA_CMAKE_ARGS
 
