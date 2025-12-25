@@ -87,7 +87,7 @@ jobs:
           
           if [ "${{ matrix.target }}" == "win64" ]; then
             # Using MSVC natively; -GNinja is recommended if you installed it above
-            EXTRA_CMAKE_ARGS="-G Ninja -DDAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON"
+            EXTRA_CMAKE_ARGS="-G Ninja -DDAWN_USE_BUILT_DXC=ON"
           fi
 
           if [ "${{ matrix.target }}" == "macos64" ]; then
