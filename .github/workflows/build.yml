@@ -49,6 +49,8 @@ jobs:
         shell: bash
         run: |
           git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git $HOME/depot_tools
+          # Use the '>>' syntax to append to the PATH rather than prepending it
+          # This ensures the system-provided Ninja is found before the depot_tools one
           echo "$HOME/depot_tools" >> $GITHUB_PATH
 
       - name: Install ninja (linux)
@@ -73,15 +75,16 @@ jobs:
       - name: Build dawn
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
-          DEPOT_TOOLS_WIN_TOOLCHAIN: 0 # Tell depot_tools to use local MSVC
+          DEPOT_TOOLS_WIN_TOOLCHAIN: 0
         shell: bash
         run: |
           EXTRA_CMAKE_ARGS=""
           
           if [ "${{ matrix.target }}" == "win64" ]; then
-            # We explicitly point to cl.exe to ensure CMake doesn't get confused 
-            # by any other compilers in the path.
-            EXTRA_CMAKE_ARGS="-G Ninja -DDAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON -DDAWN_USE_BUILT_DXC=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl"
+            # 1. Point to the reliable Ninja pre-installed on the runner
+            # 2. Force cl.exe
+            NINJA_PATH="/c/Program Files/Microsoft Visual Studio/2022/Enterprise/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe"
+            EXTRA_CMAKE_ARGS="-G Ninja -DCMAKE_MAKE_PROGRAM=\"$NINJA_PATH\" -DDAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON -DDAWN_USE_BUILT_DXC=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl"
           fi
 
           if [ "${{ matrix.target }}" == "macos64" ]; then
