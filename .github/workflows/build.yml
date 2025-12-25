@@ -1,4 +1,4 @@
-name: build
+Name: build
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
           - android
         include:
           - target: win64
-            os: windows-latest # CHANGED: Switched to native Windows runner
+            os: windows-latest
           - target: macos64
             os: macos-latest
           - target: linux64
@@ -34,11 +34,6 @@ jobs:
         with:
           submodules: true
 
-      # ADDED: This sets up cl.exe, link.exe, etc. for the bash shell to find
-      - name: Setup MSVC (Windows only)
-        if: matrix.os == 'windows-latest'
-        uses: ilammy/msvc-dev-cmd@v1
-
       - name: Setup Android NDK
         if: matrix.target == 'android'
         uses: nttld/setup-ndk@v1
@@ -49,9 +44,17 @@ jobs:
         shell: bash
         run: |
           git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git $HOME/depot_tools
-          # Use the '>>' syntax to append to the PATH rather than prepending it
-          # This ensures the system-provided Ninja is found before the depot_tools one
-          echo "$HOME/depot_tools" >> $GITHUB_PATH
+          # On Windows, we use GITHUB_PATH with the appropriate path syntax
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            echo "$HOME/depot_tools" >> $GITHUB_PATH
+          else
+            echo "$HOME/depot_tools" >> $GITHUB_PATH
+          fi
+
+      # REQUIRED: Setup MSVC Environment for Windows (fixes "CMAKE_C_COMPILER not set")
+      - name: Setup MSVC
+        if: matrix.target == 'win64'
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install ninja (linux)
         if: matrix.os == 'ubuntu-latest'
@@ -63,8 +66,9 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: brew install ninja
 
-      # Ninja is already pre-installed on windows-latest, 
-      # but we ensure it's in the path if needed.
+      - name: Install ninja (windows)
+        if: matrix.os == 'windows-latest'
+        run: choco install ninja
 
       - name: Install linux dependencies
         if: matrix.target == 'linux64'
@@ -81,10 +85,17 @@ jobs:
           EXTRA_CMAKE_ARGS=""
           
           if [ "${{ matrix.target }}" == "win64" ]; then
-            # 1. Point to the reliable Ninja pre-installed on the runner
-            # 2. Force cl.exe
-            NINJA_PATH="/c/Program Files/Microsoft Visual Studio/2022/Enterprise/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe"
-            EXTRA_CMAKE_ARGS="-G Ninja -DCMAKE_MAKE_PROGRAM=\"$NINJA_PATH\" -DDAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON -DDAWN_USE_BUILT_DXC=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl"
+            # DYNAMICALLY FIND NINJA
+            # 'where.exe' finds all instances. grep finds the one installed by choco.
+            # tr removes Windows carriage returns.
+            RAW_NINJA_PATH=$(where.exe ninja | grep "chocolatey" | head -n 1 | tr -d '\r')
+            
+            # Convert backslashes to forward slashes for CMake safety in Bash
+            NINJA_PATH="${RAW_NINJA_PATH//\\//}"
+            
+            echo "Using Ninja binary at: $NINJA_PATH"
+            
+            EXTRA_CMAKE_ARGS="-G Ninja -DDAWN_USE_BUILT_DXC=ON -DCMAKE_MAKE_PROGRAM=\"$NINJA_PATH\""
           fi
 
           if [ "${{ matrix.target }}" == "macos64" ]; then
@@ -101,7 +112,6 @@ jobs:
           fi
           
           ./scripts/build $EXTRA_CMAKE_ARGS
-
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -128,7 +138,6 @@ jobs:
           git tag $tag
           git push origin $tag
           echo "TAG=$tag" >> $GITHUB_OUTPUT
-          # Assuming 'dawn' is a submodule or directory within the repo
           echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Download artifacts
@@ -137,7 +146,7 @@ jobs:
       - name: Prepare artifacts
         run: |
           for target in win64 macos64 linux64 android; do
-            # Create a directory if it doesn't exist (artifact download usually creates it)
+            # Create a directory if it doesn't exist
             mkdir -p dawn-static-$target
             echo "${{ steps.create-git-tag.outputs.COMMIT }}" > dawn-static-$target/COMMIT
             tar -czvf dawn-static-$target.tar.gz dawn-static-$target/
