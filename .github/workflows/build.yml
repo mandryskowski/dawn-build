@@ -34,6 +34,11 @@ jobs:
         with:
           submodules: true
 
+      # ADDED: This sets up cl.exe, link.exe, etc. for the bash shell to find
+      - name: Setup MSVC (Windows only)
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Setup Android NDK
         if: matrix.target == 'android'
         uses: nttld/setup-ndk@v1
@@ -44,15 +49,7 @@ jobs:
         shell: bash
         run: |
           git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git $HOME/depot_tools
-          # On Windows, we use GITHUB_PATH with the appropriate path syntax
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            echo "$HOME/depot_tools" >> $GITHUB_PATH
-          else
-            echo "$HOME/depot_tools" >> $GITHUB_PATH
-          fi
-
-      # REMOVED: Cache windows sdk (MSVC is pre-installed)
-      # REMOVED: Download windows sdk (xwin is not needed)
+          echo "$HOME/depot_tools" >> $GITHUB_PATH
 
       - name: Install ninja (linux)
         if: matrix.os == 'ubuntu-latest'
@@ -64,11 +61,8 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: brew install ninja
 
-      - name: Install ninja (windows)
-        if: matrix.os == 'windows-latest'
-        run: choco install ninja
-
-      # REMOVED: Install windows dependencies (clang/llvm on linux not needed)
+      # Ninja is already pre-installed on windows-latest, 
+      # but we ensure it's in the path if needed.
 
       - name: Install linux dependencies
         if: matrix.target == 'linux64'
@@ -76,27 +70,35 @@ jobs:
           sudo apt-get install libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev \
             libxext-dev libxcb-shm0-dev libxtst-dev libx11-xcb-dev
 
-      # REMOVED: Setup cmake toolchain for windows (MSVC is native)
-
       - name: Build dawn
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
-          DEPOT_TOOLS_WIN_TOOLCHAIN: 0
-        # Use cmd to wrap the call in the Visual Studio environment
-        shell: cmd
+          DEPOT_TOOLS_WIN_TOOLCHAIN: 0 # Tell depot_tools to use local MSVC
+        shell: bash
         run: |
-          :: 1. Initialize MSVC environment variables
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          EXTRA_CMAKE_ARGS=""
+          
+          if [ "${{ matrix.target }}" == "win64" ]; then
+            # We explicitly point to cl.exe to ensure CMake doesn't get confused 
+            # by any other compilers in the path.
+            EXTRA_CMAKE_ARGS="-G Ninja -DDAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON -DDAWN_USE_BUILT_DXC=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl"
+          fi
 
-          :: 2. Set up arguments (manually for cmd)
-          set EXTRA_CMAKE_ARGS=-G Ninja -DDAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON -DDAWN_USE_BUILT_DXC=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
+          if [ "${{ matrix.target }}" == "macos64" ]; then
+            EXTRA_CMAKE_ARGS="-DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"
+          fi
 
-          :: 3. Run the build script using the Bash interpreter explicitly
-          :: We use the system Ninja to avoid the depot_tools version error
-          "C:\Program Files\Git\bin\bash.exe" ./scripts/build %EXTRA_CMAKE_ARGS%
-
+          if [ "${{ matrix.target }}" == "android" ]; then
+             EXTRA_CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+               -DANDROID_ABI=arm64-v8a \
+               -DANDROID_PLATFORM=android-30 \
+               -DDAWN_USE_X11=OFF \
+               -DDAWN_USE_WAYLAND=OFF \
+               -DTINT_BUILD_SPV_READER=ON"
+          fi
           
           ./scripts/build $EXTRA_CMAKE_ARGS
+
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
