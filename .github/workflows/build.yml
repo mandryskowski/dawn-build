@@ -81,6 +81,7 @@ jobs:
       - name: Build dawn
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
+          DEPOT_TOOLS_WIN_TOOLCHAIN: 0
         shell: bash # Use bash on Windows as well for script compatibility
         run: |
           EXTRA_CMAKE_ARGS=""
