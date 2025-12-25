@@ -20,7 +20,7 @@ jobs:
           - android
         include:
           - target: win64
-            os: ubuntu-latest
+            os: windows-latest # CHANGED: Switched to native Windows runner
           - target: macos64
             os: macos-latest
           - target: linux64
@@ -44,23 +44,15 @@ jobs:
         shell: bash
         run: |
           git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git $HOME/depot_tools
-          echo "$HOME/depot_tools" >> $GITHUB_PATH
+          # On Windows, we use GITHUB_PATH with the appropriate path syntax
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            echo "$HOME/depot_tools" >> $GITHUB_PATH
+          else
+            echo "$HOME/depot_tools" >> $GITHUB_PATH
+          fi
 
-      - name: Cache windows sdk
-        id: cache-windows-sdk
-        if: matrix.target == 'win64'
-        uses: actions/cache@v4
-        with:
-          path: .xwin-cache
-          key: xwin-cache
-
-      - name: Download windows sdk
-        if: matrix.target == 'win64' && steps.cache-windows-sdk.outputs.cache-hit != 'true'
-        run: |
-          curl -L https://github.com/Jake-Shadle/xwin/releases/download/0.6.7/xwin-0.6.7-x86_64-unknown-linux-musl.tar.gz > $HOME/xwin.tar.gz
-          tar -xvf $HOME/xwin.tar.gz -C $HOME
-          sudo mv $HOME/xwin-0.6.7-x86_64-unknown-linux-musl/xwin /usr/bin
-          xwin --accept-license splat --include-debug-libs
+      # REMOVED: Cache windows sdk (MSVC is pre-installed)
+      # REMOVED: Download windows sdk (xwin is not needed)
 
       - name: Install ninja (linux)
         if: matrix.os == 'ubuntu-latest'
@@ -70,13 +62,13 @@ jobs:
 
       - name: Install ninja (macos)
         if: matrix.os == 'macos-latest'
-        run: |
-          brew install ninja
+        run: brew install ninja
 
-      - name: Install windows dependencies
-        if: matrix.target == 'win64'
-        run: |
-          sudo apt-get install clang-19 clang-tools-19 llvm-19 lld-19
+      - name: Install ninja (windows)
+        if: matrix.os == 'windows-latest'
+        run: choco install ninja
+
+      # REMOVED: Install windows dependencies (clang/llvm on linux not needed)
 
       - name: Install linux dependencies
         if: matrix.target == 'linux64'
@@ -84,25 +76,22 @@ jobs:
           sudo apt-get install libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev \
             libxext-dev libxcb-shm0-dev libxtst-dev libx11-xcb-dev
 
-      - name: Setup cmake toolchain for windows
-        if: matrix.target == 'win64'
-        run: |
-          echo "CMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/cmake/WinMsvc.cmake" >> $GITHUB_ENV
-          echo "LLVM_NATIVE_TOOLCHAIN=/usr/lib/llvm-19" >> $GITHUB_ENV
-          echo "XWIN_CACHE=${{ github.workspace }}/.xwin-cache" >> $GITHUB_ENV
+      # REMOVED: Setup cmake toolchain for windows (MSVC is native)
 
       - name: Build dawn
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
+        shell: bash # Use bash on Windows as well for script compatibility
         run: |
           EXTRA_CMAKE_ARGS=""
           
           if [ "${{ matrix.target }}" == "win64" ]; then
-            EXTRA_CMAKE_ARGS="-DDAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON"
+            # Using MSVC natively; -GNinja is recommended if you installed it above
+            EXTRA_CMAKE_ARGS="-G Ninja -DDAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON"
           fi
 
           if [ "${{ matrix.target }}" == "macos64" ]; then
-                          EXTRA_CMAKE_ARGS="-DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"
+            EXTRA_CMAKE_ARGS="-DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"
           fi
 
           if [ "${{ matrix.target }}" == "android" ]; then
@@ -141,7 +130,8 @@ jobs:
           git tag $tag
           git push origin $tag
           echo "TAG=$tag" >> $GITHUB_OUTPUT
-          echo "COMMIT=$(git --git-dir dawn/.git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          # Assuming 'dawn' is a submodule or directory within the repo
+          echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -149,8 +139,10 @@ jobs:
       - name: Prepare artifacts
         run: |
           for target in win64 macos64 linux64 android; do
+            # Create a directory if it doesn't exist (artifact download usually creates it)
+            mkdir -p dawn-static-$target
             echo "${{ steps.create-git-tag.outputs.COMMIT }}" > dawn-static-$target/COMMIT
-            tar -czvf dawn-static-$target.tar.gz dawn-static-$target/*
+            tar -czvf dawn-static-$target.tar.gz dawn-static-$target/
           done
 
       - name: Create release
