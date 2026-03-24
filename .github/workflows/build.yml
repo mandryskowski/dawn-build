@@ -16,21 +16,21 @@ jobs:
       matrix:
         target:
           - win64
-          # - macos64
+          - macos64
           - linux64
-          # - android
+          - android
         sanitizer:
-          # - none
+          - none
           - asan-ubsan
         include:
           - target: win64
             os: ubuntu-latest
-          # - target: macos64
-            # os: macos-latest
+          - target: macos64
+            os: macos-latest
           - target: linux64
             os: ubuntu-latest
-          # - target: android
-            # os: ubuntu-latest
+          - target: android
+            os: ubuntu-latest
 
     env:
       ARTIFACT_NAME: dawn-static-${{ matrix.target }}${{ matrix.sanitizer == 'asan-ubsan' && '-asan-ubsan' || '' }}
