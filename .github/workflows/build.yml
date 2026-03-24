@@ -12,12 +12,16 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      fail-fast: false
       matrix:
         target:
           - win64
           - macos64
           - linux64
           - android
+        sanitizer:
+          - none
+          - asan-ubsan
         include:
           - target: win64
             os: ubuntu-latest
@@ -27,6 +31,9 @@ jobs:
             os: ubuntu-latest
           - target: android
             os: ubuntu-latest
+
+    env:
+      ARTIFACT_NAME: dawn-static-${{ matrix.target }}${{ matrix.sanitizer == 'asan-ubsan' && '-asan-ubsan' || '' }}
 
     steps:
       - name: Checkout git repo
@@ -94,6 +101,7 @@ jobs:
       - name: Build dawn
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
+          ENABLE_SANITIZERS: ${{ matrix.sanitizer == 'asan-ubsan' && '1' || '0' }}
         run: |
           EXTRA_CMAKE_ARGS=""
           
@@ -119,7 +127,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dawn-static-${{ matrix.target }}
+          name: ${{ env.ARTIFACT_NAME }}
           path: |
             build/gen/**/*
             build/lib/**/*
@@ -149,8 +157,13 @@ jobs:
       - name: Prepare artifacts
         run: |
           for target in win64 macos64 linux64 android; do
-            echo "${{ steps.create-git-tag.outputs.COMMIT }}" > dawn-static-$target/COMMIT
-            tar -czvf dawn-static-$target.tar.gz dawn-static-$target/*
+            for san in "" "-asan-ubsan"; do
+              dir="dawn-static-${target}${san}"
+              if [ -d "$dir" ]; then
+                echo "${{ steps.create-git-tag.outputs.COMMIT }}" > "$dir/COMMIT"
+                tar -czvf "${dir}.tar.gz" "$dir"/*
+              fi
+            done
           done
 
       - name: Create release
