@@ -40,6 +40,9 @@ san_cflags=""
 san_ldflags=""
 
 if [[ "${ENABLE_SANITIZERS:-0}" == "1" ]]; then
+    export CC="${CC:-clang}"
+    export CXX="${CXX:-clang++}"
+
     cmake_args+=("-DDAWN_ENABLE_ASAN=ON" "-DDAWN_ENABLE_UBSAN=ON")
     san_cflags="-fsanitize=address -fsanitize=undefined"
     
