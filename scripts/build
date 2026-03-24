@@ -36,10 +36,35 @@ if [[ -n "${XWIN_CACHE-}" ]]; then
     cmake_args+=("-DXWIN_CACHE=$XWIN_CACHE")
 fi
 
+san_cflags=""
+san_ldflags=""
+
+if [[ "${ENABLE_SANITIZERS:-0}" == "1" ]]; then
+    cmake_args+=("-DDAWN_ENABLE_ASAN=ON" "-DDAWN_ENABLE_UBSAN=ON")
+    san_cflags="-fsanitize=address -fsanitize=undefined"
+    
+    if [[ -n "${LLVM_NATIVE_TOOLCHAIN-}" ]]; then
+        # For MSVC cross-compilation, configure linking paths directly
+        clang_bin="$LLVM_NATIVE_TOOLCHAIN/bin/clang"
+        resource_dir=$("$clang_bin" -print-resource-dir)
+        win_lib_dir="$resource_dir/lib/windows"
+        
+        san_ldflags="-libpath:$win_lib_dir clang_rt.asan_dynamic-x86_64.lib clang_rt.asan_dynamic_runtime_thunk-x86_64.lib -include:__asan_seh_interceptor -wholearchive:clang_rt.asan_dynamic_runtime_thunk-x86_64.lib clang_rt.ubsan_standalone-x86_64.lib"
+        cmake_args+=("-DCMAKE_TRY_COMPILE_CONFIGURATION=Release")
+    else
+        # For native compilations, apply the sanitizer flags as CMake globals
+        cmake_args+=("-DCMAKE_C_FLAGS=$san_cflags" "-DCMAKE_CXX_FLAGS=$san_cflags")
+    fi
+fi
+
+export CFLAGS="$san_cflags"
+export CXXFLAGS="-Wno-float-equal $san_cflags"
+
+if [[ -n "$san_ldflags" ]]; then
+    export LDFLAGS="$san_ldflags"
+fi
+
 cmake_args+=("$@")
 
-export CXXFLAGS="-Wno-float-equal"
-
-# Do the build
 cmake "${cmake_args[@]}" ../dawn
 cmake --build . --target dawn_native dawn_proc
