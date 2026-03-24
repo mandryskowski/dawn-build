@@ -20,7 +20,7 @@ jobs:
       - name: Enable auto-merge for Dependabot PRs
         if: steps.metadata.outputs.package-ecosystem == 'submodules'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           gh pr review --approve "$PR_URL"

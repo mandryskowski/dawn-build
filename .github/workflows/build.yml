@@ -102,7 +102,7 @@ jobs:
           fi
 
           if [ "${{ matrix.target }}" == "macos64" ]; then
-                          EXTRA_CMAKE_ARGS="-DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"
+            EXTRA_CMAKE_ARGS="-DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"
           fi
 
           if [ "${{ matrix.target }}" == "android" ]; then
