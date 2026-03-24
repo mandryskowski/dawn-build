@@ -12,12 +12,16 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      fail-fast: false
       matrix:
         target:
           - win64
           - macos64
           - linux64
           - android
+        sanitizer:
+          - none
+          - asan-ubsan
         include:
           - target: win64
             os: ubuntu-latest
@@ -27,6 +31,9 @@ jobs:
             os: ubuntu-latest
           - target: android
             os: ubuntu-latest
+
+    env:
+      ARTIFACT_NAME: dawn-static-${{ matrix.target }}${{ matrix.sanitizer == 'asan-ubsan' && '-asan-ubsan' || '' }}
 
     steps:
       - name: Checkout git repo
@@ -76,12 +83,22 @@ jobs:
       - name: Install windows dependencies
         if: matrix.target == 'win64'
         run: |
-          sudo apt-get install clang-19 clang-tools-19 llvm-19 lld-19
+          sudo apt-get install clang-19 clang-tools-19 llvm-19 lld-19 p7zip-full
+
+      - name: Fetch Windows compiler-rt for ASan
+        if: matrix.target == 'win64' && matrix.sanitizer == 'asan-ubsan'
+        run: |
+          # The ubuntu LLVM package doesn't have the windows compiler-rt libraries.
+          # We download the official LLVM windows installer, extract it, and graft the libraries.
+          curl -L "https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.0/LLVM-19.1.0-win64.exe" -o llvm.exe
+          7z x llvm.exe -o"$HOME/llvm-win"
+          sudo mkdir -p /usr/lib/llvm-19/lib/clang/19/lib/windows
+          find "$HOME/llvm-win" -type d -name "windows" | grep "lib/clang" | xargs -I {} sudo cp -r {}/. /usr/lib/llvm-19/lib/clang/19/lib/windows/
 
       - name: Install linux dependencies
         if: matrix.target == 'linux64'
         run: |
-          sudo apt-get install libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev \
+          sudo apt-get install clang libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev \
             libxext-dev libxcb-shm0-dev libxtst-dev libx11-xcb-dev
 
       - name: Setup cmake toolchain for windows
@@ -94,6 +111,7 @@ jobs:
       - name: Build dawn
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
+          ENABLE_SANITIZERS: ${{ matrix.sanitizer == 'asan-ubsan' && '1' || '0' }}
         run: |
           EXTRA_CMAKE_ARGS=""
           
@@ -119,7 +137,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dawn-static-${{ matrix.target }}
+          name: ${{ env.ARTIFACT_NAME }}
           path: |
             build/gen/**/*
             build/lib/**/*
@@ -149,8 +167,13 @@ jobs:
       - name: Prepare artifacts
         run: |
           for target in win64 macos64 linux64 android; do
-            echo "${{ steps.create-git-tag.outputs.COMMIT }}" > dawn-static-$target/COMMIT
-            tar -czvf dawn-static-$target.tar.gz dawn-static-$target/*
+            for san in "" "-asan-ubsan"; do
+              dir="dawn-static-${target}${san}"
+              if [ -d "$dir" ]; then
+                echo "${{ steps.create-git-tag.outputs.COMMIT }}" > "$dir/COMMIT"
+                tar -czvf "${dir}.tar.gz" "$dir"/*
+              fi
+            done
           done
 
       - name: Create release
