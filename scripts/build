@@ -26,6 +26,9 @@ cmake_args=(
     "-GNinja"
     "-DCMAKE_BUILD_TYPE=Release"
     "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$(pwd)/lib"
+    "-DTINT_BUILD_HLSL_WRITER=ON"
+    "-DTINT_BUILD_MSL_WRITER=ON"
+    "-DTINT_BUILD_SPV_WRITER=ON"
 )
 
 if [[ -n "${LLVM_NATIVE_TOOLCHAIN-}" ]]; then
@@ -70,4 +73,4 @@ fi
 cmake_args+=("$@")
 
 cmake "${cmake_args[@]}" ../dawn
-cmake --build . --target dawn_native dawn_proc
+cmake --build . --target dawn_native dawn_proc tint_cmd_tint_cmd
