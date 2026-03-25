@@ -26,6 +26,9 @@ cmake_args=(
     "-GNinja"
     "-DCMAKE_BUILD_TYPE=Release"
     "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$(pwd)/lib"
+    "-DTINT_BUILD_HLSL_WRITER=ON"
+    "-DTINT_BUILD_MSL_WRITER=ON"
+    "-DTINT_BUILD_SPV_WRITER=ON"
 )
 
 if [[ -n "${LLVM_NATIVE_TOOLCHAIN-}" ]]; then
@@ -52,7 +55,8 @@ if [[ "${ENABLE_SANITIZERS:-0}" == "1" ]]; then
         resource_dir=$("$clang_bin" -print-resource-dir)
         win_lib_dir="$resource_dir/lib/windows"
         
-        san_ldflags="-libpath:$win_lib_dir clang_rt.asan_dynamic-x86_64.lib clang_rt.asan_dynamic_runtime_thunk-x86_64.lib -include:__asan_seh_interceptor -wholearchive:clang_rt.asan_dynamic_runtime_thunk-x86_64.lib clang_rt.ubsan_standalone-x86_64.lib"
+        san_ldflags="-libpath:$win_lib_dir clang_rt.asan_dynamic-x86_64.lib clang_rt.asan_dynamic_runtime_thunk-x86_64.lib -include:__asan_seh_interceptor -wholearchive:clang_rt.asan_dynamic_runtime_thunk-x86_64.lib clang_rt.ubsan_standalone-x86_64.lib -nodefaultlib:stl_asan.lib -nodefaultlib:vcasan.lib -D_HAS_ASAN=0"
+        
         cmake_args+=("-DCMAKE_TRY_COMPILE_CONFIGURATION=Release")
     else
         # For native compilations, apply the sanitizer flags as CMake globals
@@ -70,4 +74,4 @@ fi
 cmake_args+=("$@")
 
 cmake "${cmake_args[@]}" ../dawn
-cmake --build . --target dawn_native dawn_proc
+cmake --build . --target dawn_native dawn_proc tint_cmd_tint_cmd
