@@ -15,22 +15,25 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - win64
-          - macos64
-          - linux64
-          - android
+          # - win64
+          # - macos64
+          # - linux64
+          # - android
+          - ios
         sanitizer:
           - none
           - asan-ubsan
         include:
-          - target: win64
-            os: ubuntu-latest
-          - target: macos64
+          # - target: win64
+          #   os: ubuntu-latest
+          # - target: macos64
+          #   os: macos-latest
+          # - target: linux64
+          #   os: ubuntu-latest
+          # - target: android
+          #   os: ubuntu-latest
+          - target: ios
             os: macos-latest
-          - target: linux64
-            os: ubuntu-latest
-          - target: android
-            os: ubuntu-latest
 
     env:
       ARTIFACT_NAME: dawn-static-${{ matrix.target }}${{ matrix.sanitizer == 'asan-ubsan' && '-asan-ubsan' || '' }}
@@ -123,6 +126,12 @@ jobs:
             EXTRA_CMAKE_ARGS="-DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"
           fi
 
+          if [ "${{ matrix.target }}" == "ios" ]; then
+            EXTRA_CMAKE_ARGS="-DCMAKE_SYSTEM_NAME=iOS \
+              -DCMAKE_OSX_ARCHITECTURES=arm64 \
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0"
+          fi
+
           if [ "${{ matrix.target }}" == "android" ]; then
              EXTRA_CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
                -DANDROID_ABI=arm64-v8a \
@@ -166,7 +175,7 @@ jobs:
 
       - name: Prepare artifacts
         run: |
-          for target in win64 macos64 linux64 android; do
+          for target in win64 macos64 linux64 android ios; do
             for san in "" "-asan-ubsan"; do
               dir="dawn-static-${target}${san}"
               if [ -d "$dir" ]; then
