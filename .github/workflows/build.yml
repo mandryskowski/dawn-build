@@ -36,7 +36,7 @@ jobs:
             os: macos-latest
 
     env:
-      ARTIFACT_NAME: dawn-static-${{ matrix.target }}${{ matrix.sanitizer == 'asan-ubsan' && '-asan-ubsan' || '' }}
+      ARTIFACT_NAME: dawn-static-${{ matrix.target }}${sanitizer_suffix}
 
     steps:
       - name: Checkout git repo
@@ -115,6 +115,7 @@ jobs:
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
           ENABLE_SANITIZERS: ${{ matrix.sanitizer == 'asan-ubsan' && '1' || '0' }}
+          TARGET_OS: ${{ matrix.target }}
         run: |
           EXTRA_CMAKE_ARGS=""
           
@@ -129,7 +130,10 @@ jobs:
           if [ "${{ matrix.target }}" == "ios" ]; then
             EXTRA_CMAKE_ARGS="-DCMAKE_SYSTEM_NAME=iOS \
               -DCMAKE_OSX_ARCHITECTURES=arm64 \
-              -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0"
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
+              -DTINT_BUILD_CMD_TOOLS=OFF \
+              -DDAWN_BUILD_SAMPLES=OFF \
+              -DTINT_BUILD_TESTS=OFF"
           fi
 
           if [ "${{ matrix.target }}" == "android" ]; then
@@ -146,7 +150,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ARTIFACT_NAME }}
+          name: dawn-static-${{ matrix.target }}${{ matrix.sanitizer == 'asan-ubsan' && '-asan-ubsan' || '' }}
           path: |
             build/gen/**/*
             build/lib/**/*
@@ -191,3 +195,4 @@ jobs:
         run: |
           gh release create ${{ steps.create-git-tag.outputs.TAG }} dawn-static-*.tar.gz \
             -n "dawn@${{ steps.create-git-tag.outputs.COMMIT }}"
+  
