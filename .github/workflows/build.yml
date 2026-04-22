@@ -34,6 +34,9 @@ jobs:
             os: ubuntu-latest
           - target: ios
             os: macos-latest
+          - target: android
+            os: ubuntu-latest
+            sanitizer: mte
 
     env:
       ARTIFACT_NAME: dawn-static-${{ matrix.target }}${sanitizer_suffix}
@@ -115,6 +118,7 @@ jobs:
         env:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
           ENABLE_SANITIZERS: ${{ matrix.sanitizer == 'asan-ubsan' && '1' || '0' }}
+          ENABLE_MTE: ${{ matrix.sanitizer == 'mte' && '1' || '0' }}
           TARGET_OS: ${{ matrix.target }}
         run: |
           EXTRA_CMAKE_ARGS=""
@@ -150,7 +154,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dawn-static-${{ matrix.target }}${{ matrix.sanitizer == 'asan-ubsan' && '-asan-ubsan' || '' }}
+          name: dawn-static-${{ matrix.target }}${{ matrix.sanitizer == 'asan-ubsan' && '-asan-ubsan' || matrix.sanitizer == 'mte' && '-mte' || '' }}
           path: |
             build/gen/**/*
             build/lib/**/*
@@ -180,7 +184,7 @@ jobs:
       - name: Prepare artifacts
         run: |
           for target in win64 macos64 linux64 android ios; do
-            for san in "" "-asan-ubsan"; do
+            for san in "" "-asan-ubsan" "-mte"; do
               dir="dawn-static-${target}${san}"
               if [ -d "$dir" ]; then
                 echo "${{ steps.create-git-tag.outputs.COMMIT }}" > "$dir/COMMIT"
