@@ -77,12 +77,13 @@ cmake "${cmake_args[@]}" ../dawn
 build_targets=(
     "dawn_native"
     "dawn_proc"
-    "webgpu_dawn"
-    "tint_api"
 )
 
 if [[ "${TARGET_OS:-}" != "ios" ]]; then
     build_targets+=("tint_cmd_tint_cmd")
+else
+    build_targets+=("webgpu_dawn")
+    build_targets+=("tint_api")
 fi
 
 cmake --build . --target "${build_targets[@]}"
