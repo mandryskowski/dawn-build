@@ -42,6 +42,14 @@ fi
 san_cflags=""
 san_ldflags=""
 
+if [[ "${ENABLE_MTE:-0}" == "1" ]]; then
+    export CC="${CC:-clang}"
+    export CXX="${CXX:-clang++}"
+
+    san_cflags="-fsanitize=memtag-heap -march=armv8.5-a+memtag"
+    cmake_args+=("-DCMAKE_C_FLAGS=$san_cflags" "-DCMAKE_CXX_FLAGS=$san_cflags" "-DCMAKE_EXE_LINKER_FLAGS=$san_cflags" "-DCMAKE_SHARED_LINKER_FLAGS=$san_cflags")
+fi
+
 if [[ "${ENABLE_SANITIZERS:-0}" == "1" ]]; then
     export CC="${CC:-clang}"
     export CXX="${CXX:-clang++}"
