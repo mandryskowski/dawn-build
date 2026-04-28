@@ -101,9 +101,11 @@ jobs:
       - name: Install linux dependencies
         if: matrix.target == 'linux64'
         run: |
-          sudo apt-get install clang-18 llvm-18 libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev \
-            libxext-dev libxcb-shm0-dev libxtst-dev libx11-xcb-dev
-
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 20
+          sudo apt-get install -y clang-20 llvm-20 libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev libxext-dev libxcb-shm0-dev libxtst-dev libx11-xcb-dev
+          
       - name: Setup cmake toolchain for windows
         if: matrix.target == 'win64'
         run: |
@@ -116,8 +118,8 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: "11.0"
           ENABLE_SANITIZERS: ${{ matrix.sanitizer == 'asan-ubsan' && '1' || '0' }}
           TARGET_OS: ${{ matrix.target }}
-          CC: ${{ matrix.target == 'linux64' && 'clang-18' || 'clang' }}
-          CXX: ${{ matrix.target == 'linux64' && 'clang++-18' || 'clang++' }}
+          CC: ${{ matrix.target == 'linux64' && 'clang-20' || 'clang' }}
+          CXX: ${{ matrix.target == 'linux64' && 'clang++-20' || 'clang++' }}
         run: |
           EXTRA_CMAKE_ARGS=""
           
