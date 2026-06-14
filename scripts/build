@@ -29,6 +29,7 @@ cmake_args=(
     "-DTINT_BUILD_HLSL_WRITER=ON"
     "-DTINT_BUILD_MSL_WRITER=ON"
     "-DTINT_BUILD_SPV_WRITER=ON"
+    "-DCMAKE_CXX_SCAN_FOR_MODULES=OFF" # <-- Added to disable module scanning
 )
 
 if [[ -n "${LLVM_NATIVE_TOOLCHAIN-}" ]]; then
