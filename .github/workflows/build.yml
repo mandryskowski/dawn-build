@@ -70,7 +70,7 @@ jobs:
           curl -L https://github.com/Jake-Shadle/xwin/releases/download/0.6.7/xwin-0.6.7-x86_64-unknown-linux-musl.tar.gz > $HOME/xwin.tar.gz
           tar -xvf $HOME/xwin.tar.gz -C $HOME
           sudo mv $HOME/xwin-0.6.7-x86_64-unknown-linux-musl/xwin /usr/bin
-          xwin --accept-license splat --include-debug-libs
+          xwin --accept-license --include-atl splat --include-debug-libs
 
       - name: Install ninja (linux)
         if: matrix.os == 'ubuntu-latest'
