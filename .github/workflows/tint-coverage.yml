@@ -1,0 +1,53 @@
+name: tint-coverage
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install depot_tools
+        shell: bash
+        run: |
+          git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git $HOME/depot_tools
+          echo "$HOME/depot_tools" >> $GITHUB_PATH
+
+      - name: Install linux dependencies
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 20
+          sudo apt-get install -y ninja-build clang-20 llvm-20 libxrandr-dev libxinerama-dev libx11-dev libxcursor-dev libxi-dev libxext-dev libxcb-shm0-dev libxtst-dev libx11-xcb-dev
+
+      - name: Build tint with coverage
+        env:
+          CC: clang-20
+          CXX: clang++-20
+        run: |
+          COV_FLAGS="-fprofile-instr-generate -fcoverage-mapping"
+          
+          ./scripts/build \
+            -DCMAKE_C_FLAGS="$COV_FLAGS" \
+            -DCMAKE_CXX_FLAGS="$COV_FLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$COV_FLAGS" \
+            -DCMAKE_MODULE_LINKER_FLAGS="$COV_FLAGS" \
+            -DCMAKE_SHARED_LINKER_FLAGS="$COV_FLAGS"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tint-coverage-linux64
+          path: |
+            build/tint
+            build/lib/**/*
