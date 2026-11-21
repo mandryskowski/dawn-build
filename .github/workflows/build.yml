@@ -25,13 +25,13 @@ jobs:
           - asan-ubsan
         include:
           - target: win64
-            os: ubuntu-latest
+            os: ubuntu-24.04
           - target: macos64
             os: macos-latest
           - target: linux64
-            os: ubuntu-latest
+            os: ubuntu-24.04
           - target: android
-            os: ubuntu-latest
+            os: ubuntu-24.04
           - target: ios
             os: macos-latest
 
@@ -73,7 +73,7 @@ jobs:
           xwin --accept-license --include-atl splat --include-debug-libs
 
       - name: Install ninja (linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install ninja-build
@@ -160,7 +160,7 @@ jobs:
             build/lib/**/*
 
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     if: success() && github.ref == 'refs/heads/main'
     steps:
